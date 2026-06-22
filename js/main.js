@@ -27,7 +27,8 @@
     x: "X",
     search: "Search",
     home: "Home",
-    website: "Globe2"
+    website: "Globe2",
+    "chevron-down": "ChevronDown",
   };
 
   function icon(name, className = "") {
@@ -47,36 +48,332 @@
     return `mailto:${safe(cfg.email)}`;
   }
 
+  function ensurePageLoader() {
+    let loader = document.querySelector("[data-page-loader]");
+    if (loader) return loader;
+    loader = document.createElement("div");
+    loader.className = "page-loader";
+    loader.dataset.pageLoader = "";
+    loader.setAttribute("aria-hidden", "true");
+    loader.innerHTML = `
+      <div class="page-loader__box" role="status" aria-live="polite">
+        <div class="page-loader__mark">${icon("paw-print")}</div>
+        <strong>Loading</strong>
+      </div>`;
+    document.body.appendChild(loader);
+    return loader;
+  }
+
+  function showPageLoader() {
+    const loader = ensurePageLoader();
+    loader.classList.add("is-visible");
+    loader.setAttribute("aria-hidden", "false");
+    document.body.classList.add("page-loading");
+    refreshIcons();
+  }
+
+  function hidePageLoader() {
+    const loader = document.querySelector("[data-page-loader]");
+    if (!loader) return;
+    loader.classList.remove("is-visible");
+    loader.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("page-loading");
+  }
+
+  function setupPageTransitions() {
+    ensurePageLoader();
+    hidePageLoader();
+
+    window.addEventListener("pageshow", hidePageLoader);
+    window.addEventListener("pagehide", () =>
+      document.body.classList.remove("page-loading"),
+    );
+
+    document.addEventListener("click", (event) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const link = event.target.closest("a[href]");
+      if (!link) return;
+      if (link.target && link.target !== "_self") return;
+      if (link.hasAttribute("download")) return;
+
+      const rawHref = link.getAttribute("href") || "";
+      if (
+        !rawHref ||
+        rawHref.startsWith("#") ||
+        rawHref.startsWith("tel:") ||
+        rawHref.startsWith("mailto:")
+      )
+        return;
+
+      const url = new URL(rawHref, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (
+        url.pathname === window.location.pathname &&
+        url.search === window.location.search &&
+        url.hash
+      )
+        return;
+
+      event.preventDefault();
+      showPageLoader();
+      window.setTimeout(() => {
+        window.location.href = url.href;
+      }, 240);
+    });
+  }
+
+  function buildSearchIndex() {
+    const staticPages = [
+      {
+        title: "Home",
+        url: "index.html",
+        type: "Page",
+        text: "wildlife removal humane exclusion attic cleanup prevention repairs inspection emergency service",
+      },
+      {
+        title: "Services",
+        url: "services.html",
+        type: "Page",
+        text: "service directory raccoon squirrel bat snake bird rodent exclusion attic emergency wildlife",
+      },
+      {
+        title: "About",
+        url: "about.html",
+        type: "Page",
+        text: "about humane wildlife help full property inspection removal cleanup prevention",
+      },
+      {
+        title: "Contact",
+        url: "contact.html",
+        type: "Page",
+        text: "contact request help phone email inspection wildlife service",
+      },
+      {
+        title: "Privacy Policy",
+        url: "privacy.html",
+        type: "Legal",
+        text: "privacy personal information cookies data rights contact",
+      },
+      {
+        title: "Terms & Conditions",
+        url: "terms.html",
+        type: "Legal",
+        text: "terms conditions service estimates payment warranty liability",
+      },
+      {
+        title: "Cookie Policy",
+        url: "cookie-policy.html",
+        type: "Legal",
+        text: "cookies analytics functional marketing browser settings",
+      },
+    ];
+
+    const servicePages = services.map((service) => ({
+      title: service.title,
+      url: `${service.slug}.html`,
+      type: "Service",
+      text: [
+        service.category,
+        service.short,
+        service.intro,
+        ...(service.included || []),
+        ...(service.bestFor || []),
+        ...(service.details || []),
+      ].join(" "),
+    }));
+
+    return [...servicePages, ...staticPages].map((item) => ({
+      ...item,
+      haystack: `${item.title} ${item.type} ${item.text}`.toLowerCase(),
+    }));
+  }
+
+  function setupSiteSearch() {
+    const toggles = document.querySelectorAll(".search-toggle");
+    if (!toggles.length) return;
+
+    const index = buildSearchIndex();
+    const modal = document.createElement("div");
+    modal.className = "site-search";
+    modal.dataset.siteSearch = "";
+    modal.setAttribute("aria-hidden", "true");
+    modal.innerHTML = `
+      <div class="site-search__backdrop" data-search-close></div>
+      <div class="site-search__panel" role="dialog" aria-modal="true" aria-labelledby="site-search-title">
+        <button class="site-search__close" type="button" data-search-close aria-label="Close search">${icon("x")}</button>
+        <div class="site-search__head">
+          <h2 id="site-search-title">Search the site</h2>
+          <p>Find services, service details, contact information, and legal pages.</p>
+        </div>
+        <label class="site-search__field">
+          ${icon("search")}
+          <input type="search" data-search-input placeholder="Search raccoon, attic, emergency..." autocomplete="off">
+        </label>
+        <div class="site-search__results" data-search-results></div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const input = modal.querySelector("[data-search-input]");
+    const results = modal.querySelector("[data-search-results]");
+    let previousFocus = null;
+
+    function renderResults(query = "") {
+      const terms = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+      const matches = terms.length
+        ? index
+            .map((item) => ({
+              ...item,
+              score: terms.reduce((score, term) => {
+                const title = item.title.toLowerCase();
+                const titleWords = title.split(/\W+/);
+                const titleScore = titleWords.includes(term) ? 8 : title.includes(term) ? 5 : 0;
+                return score + titleScore + (item.haystack.includes(term) ? 1 : 0);
+              }, 0),
+            }))
+            .filter((item) => item.score > 0)
+            .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+            .slice(0, 8)
+        : index.slice(0, 6);
+
+      results.innerHTML = matches.length
+        ? matches
+            .map(
+              (item) => `
+            <a class="site-search__result" href="${item.url}">
+              <span>${item.type}</span>
+              <strong>${item.title}</strong>
+              <p>${item.text.split(" ").slice(0, 18).join(" ")}...</p>
+              ${icon("arrow")}
+            </a>`,
+            )
+            .join("")
+        : `<div class="site-search__empty">${icon("search")}<strong>No matching pages found.</strong><p>Try a service name, animal type, or location such as attic, roofline, cleanup, or emergency.</p></div>`;
+      refreshIcons();
+    }
+
+    function openSearch() {
+      previousFocus = document.activeElement;
+      modal.classList.add("is-visible");
+      modal.setAttribute("aria-hidden", "false");
+      document.body.classList.add("site-search-open");
+      toggles.forEach((button) => button.setAttribute("aria-expanded", "true"));
+      renderResults(input.value);
+      window.setTimeout(() => input.focus(), 30);
+    }
+
+    function closeSearch() {
+      modal.classList.remove("is-visible");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("site-search-open");
+      toggles.forEach((button) => button.setAttribute("aria-expanded", "false"));
+      previousFocus?.focus?.();
+    }
+
+    toggles.forEach((button) => {
+      button.setAttribute("aria-expanded", "false");
+      button.addEventListener("click", openSearch);
+    });
+    modal.querySelectorAll("[data-search-close]").forEach((button) => button.addEventListener("click", closeSearch));
+    input.addEventListener("input", () => renderResults(input.value));
+    modal.addEventListener("click", (event) => {
+      if (event.target.closest(".site-search__result")) closeSearch();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && modal.classList.contains("is-visible")) closeSearch();
+    });
+    renderResults();
+  }
+
   function hydrateConfig() {
-    document.querySelectorAll("[data-company-name]").forEach((el) => (el.textContent = cfg.companyName));
-    document.querySelectorAll("[data-company-legal-name]").forEach((el) => (el.textContent = cfg.companyLegalName));
-    document.querySelectorAll("[data-company-id]").forEach((el) => (el.textContent = cfg.companyId));
-    document.querySelectorAll("[data-company-address]").forEach((el) => (el.textContent = `${cfg.addressLine1}, ${cfg.addressLine2}`));
-    document.querySelectorAll("[data-phone-text]").forEach((el) => (el.textContent = cfg.phoneDisplay));
-    document.querySelectorAll("[data-phone-label]").forEach((el) => (el.textContent = cfg.phoneButtonLabel));
-    document.querySelectorAll("[data-email-text]").forEach((el) => (el.textContent = cfg.email));
-    document.querySelectorAll("[data-website-text]").forEach((el) => (el.textContent = cfg.website));
-    document.querySelectorAll("[data-cta-primary]").forEach((el) => (el.textContent = cfg.ctaPrimary));
-    document.querySelectorAll("[data-cta-secondary]").forEach((el) => (el.textContent = cfg.ctaSecondary));
-    document.querySelectorAll("[data-footer-text-primary]").forEach((el) => (el.textContent = cfg.footerTextPrimary));
-    document.querySelectorAll("[data-footer-text-secondary]").forEach((el) => (el.textContent = cfg.footerTextSecondary));
-    document.querySelectorAll("[data-disclaimer-short]").forEach((el) => (el.textContent = cfg.disclaimerShort));
-    document.querySelectorAll("[data-disclaimer-full]").forEach((el) => (el.textContent = cfg.disclaimerFull));
-    document.querySelectorAll("[data-footer-disclaimer]").forEach((el) => (el.textContent = cfg.footerDisclaimer));
-    document.querySelectorAll("[data-service-area]").forEach((el) => (el.textContent = cfg.serviceArea));
-    document.querySelectorAll("[data-business-hours]").forEach((el) => (el.textContent = cfg.businessHours));
-    document.querySelectorAll("[data-copyright-line]").forEach((el) => (el.textContent = cfg.copyrightLine));
-    document.querySelectorAll("[data-year]").forEach((el) => (el.textContent = new Date().getFullYear()));
+    document
+      .querySelectorAll("[data-company-name]")
+      .forEach((el) => (el.textContent = cfg.companyName));
+    document
+      .querySelectorAll("[data-company-legal-name]")
+      .forEach((el) => (el.textContent = cfg.companyLegalName));
+    document
+      .querySelectorAll("[data-company-id]")
+      .forEach((el) => (el.textContent = cfg.companyId));
+    document
+      .querySelectorAll("[data-company-address]")
+      .forEach(
+        (el) => (el.textContent = `${cfg.addressLine1}, ${cfg.addressLine2}`),
+      );
+    document
+      .querySelectorAll("[data-phone-text]")
+      .forEach((el) => (el.textContent = cfg.phoneDisplay));
+    document
+      .querySelectorAll("[data-phone-label]")
+      .forEach((el) => (el.textContent = cfg.phoneButtonLabel));
+    document
+      .querySelectorAll("[data-email-text]")
+      .forEach((el) => (el.textContent = cfg.email));
+    document
+      .querySelectorAll("[data-website-text]")
+      .forEach((el) => (el.textContent = cfg.website));
+    document
+      .querySelectorAll("[data-cta-primary]")
+      .forEach((el) => (el.textContent = cfg.ctaPrimary));
+    document
+      .querySelectorAll("[data-cta-secondary]")
+      .forEach((el) => (el.textContent = cfg.ctaSecondary));
+    document
+      .querySelectorAll("[data-footer-text-primary]")
+      .forEach((el) => (el.textContent = cfg.footerTextPrimary));
+    document
+      .querySelectorAll("[data-footer-text-secondary]")
+      .forEach((el) => (el.textContent = cfg.footerTextSecondary));
+    document
+      .querySelectorAll("[data-disclaimer-short]")
+      .forEach((el) => (el.textContent = cfg.disclaimerShort));
+    document
+      .querySelectorAll("[data-disclaimer-full]")
+      .forEach((el) => (el.textContent = cfg.disclaimerFull));
+    document
+      .querySelectorAll("[data-footer-disclaimer]")
+      .forEach((el) => (el.textContent = cfg.footerDisclaimer));
+    document
+      .querySelectorAll("[data-service-area]")
+      .forEach((el) => (el.textContent = cfg.serviceArea));
+    document
+      .querySelectorAll("[data-business-hours]")
+      .forEach((el) => (el.textContent = cfg.businessHours));
+    document
+      .querySelectorAll("[data-copyright-line]")
+      .forEach((el) => (el.textContent = cfg.copyrightLine));
+    document
+      .querySelectorAll("[data-year]")
+      .forEach((el) => (el.textContent = new Date().getFullYear()));
     document.querySelectorAll("[data-footer-company-line]").forEach((el) => {
       el.textContent = `${cfg.companyName} - ${cfg.addressLine1}, ${cfg.addressLine2} - ${cfg.companyId}`;
     });
 
-    document.querySelectorAll("[data-phone-link]").forEach((el) => el.setAttribute("href", phoneHref()));
-    document.querySelectorAll("[data-email-link]").forEach((el) => el.setAttribute("href", emailHref()));
-    document.querySelectorAll("[data-website-link]").forEach((el) => el.setAttribute("href", `https://${cfg.website}`));
+    document
+      .querySelectorAll("[data-phone-link]")
+      .forEach((el) => el.setAttribute("href", phoneHref()));
+    document
+      .querySelectorAll("[data-email-link]")
+      .forEach((el) => el.setAttribute("href", emailHref()));
+    document
+      .querySelectorAll("[data-website-link]")
+      .forEach((el) => el.setAttribute("href", `https://${cfg.website}`));
 
     if (document.title.includes("WildGuard")) {
-      document.title = document.title.replace(/WildGuard Removal/g, cfg.companyName);
+      document.title = document.title.replace(
+        /WildGuard Removal/g,
+        cfg.companyName,
+      );
     }
   }
 
@@ -87,7 +384,6 @@
         <div class="topbar">
           <div class="container topbar__inner">
             <a class="topbar__phone" data-phone-link href="${phoneHref()}">${icon("phone")} Available 24/7 - <span data-phone-text>${cfg.phoneDisplay}</span></a>
-            <div class="topbar__social"><span>Follow Our Field Updates:</span><a href="#" aria-label="Facebook">f</a><a href="#" aria-label="Instagram">◎</a><a href="#" aria-label="YouTube">▶</a><a href="#" aria-label="X">X</a></div>
           </div>
         </div>
         <div class="navbar">
@@ -99,22 +395,31 @@
             <nav class="nav" aria-label="Main navigation">
               <a href="index.html">Home</a>
               <div class="nav__dropdown">
-                <a href="services.html" class="nav__drop-trigger">Services <span>⌄</span></a>
+                <a href="services.html" class="nav__drop-trigger">Services ${icon("chevron-down", "nav__chevron")}</a>
                 <div class="nav__panel nav__panel--mega">
-                  ${groups
-                    .map(
-                      (group) => `
-                    <div class="nav__group">
-                      <div class="nav__group-title">${icon(group.icon)} ${group.title}</div>
-                      ${group.slugs
-                        .map((slug) => {
-                          const service = bySlug.get(slug);
-                          return service ? `<a href="${service.slug}.html">${service.title}</a>` : "";
-                        })
-                        .join("")}
-                    </div>`
-                    )
-                    .join("")}
+                  <div class="nav__mega-list">
+                    ${groups
+                      .map(
+                        (group) => `
+                      <div class="nav__group">
+                        <div class="nav__group-title">${icon(group.icon)} ${group.title}</div>
+                        ${group.slugs
+                          .map((slug) => {
+                            const service = bySlug.get(slug);
+                            return service
+                              ? `<a href="${service.slug}.html">${service.title}</a>`
+                              : "";
+                          })
+                          .join("")}
+                      </div>`,
+                      )
+                      .join("")}
+                  </div>
+                  <div class="nav__mega-aside">
+                    <span>Complete wildlife support</span>
+                    <p>Removal, exclusion, cleanup, repair, and urgent help in one service path.</p>
+                    <a href="services.html">View all services ${icon("arrow")}</a>
+                  </div>
                 </div>
               </div>
               <a href="about.html">About</a>
@@ -166,7 +471,13 @@
           </div>
           <div>
             <h2>Services</h2>
-            ${services.slice(0, 6).map((service) => `<a href="${service.slug}.html">${service.title}</a>`).join("")}
+            ${services
+              .slice(0, 6)
+              .map(
+                (service) =>
+                  `<a href="${service.slug}.html">${service.title}</a>`,
+              )
+              .join("")}
           </div>
           <div>
             <h2>Contact</h2>
@@ -199,33 +510,10 @@
           (service, index) => `
         <article class="service-card reveal" style="--bg:url('${service.heroImage}'); --i:${index}">
           <div class="service-card__icon">${icon(service.icon)}</div>
-          <span class="service-card__number">${String(index + 1).padStart(2, "0")}</span>
-          <p>${service.eyebrow}</p>
           <h3>${service.title}</h3>
-          <p>${service.short}</p>
+          <p class="service-card__text">${service.short}</p>
           <a href="${service.slug}.html">Read more ${icon("arrow")}</a>
-        </article>`
-        )
-        .join("");
-    });
-
-    document.querySelectorAll("[data-service-directory]").forEach((root) => {
-      root.innerHTML = groups
-        .map(
-          (group) => `
-        <section class="directory-group reveal">
-          <div class="directory-group__head">${icon(group.icon)}<h2>${group.title}</h2></div>
-          <div class="directory-group__links">
-            ${group.slugs
-              .map((slug) => {
-                const service = bySlug.get(slug);
-                return service
-                  ? `<a href="${service.slug}.html"><span>${service.title}</span><small>${service.short}</small></a>`
-                  : "";
-              })
-              .join("")}
-          </div>
-        </section>`
+        </article>`,
         )
         .join("");
     });
@@ -245,17 +533,15 @@
 
       track.innerHTML = services
         .map(
-          (service, slideIndex) => `
+          (service) => `
         <article class="service-slide" aria-label="${service.title}">
           <img src="${service.heroImage}" alt="${service.title} wildlife removal service" loading="lazy">
           <div class="service-slide__body">
-            <span>${icon(service.icon)} ${service.eyebrow}</span>
             <h3>${service.title}</h3>
             <p>${service.short}</p>
             <a href="${service.slug}.html">View service ${icon("arrow")}</a>
           </div>
-          <b>${String(slideIndex + 1).padStart(2, "0")}</b>
-        </article>`
+        </article>`,
         )
         .join("");
 
@@ -267,7 +553,10 @@
 
       function buildDots() {
         dots.innerHTML = Array.from({ length: maxIndex + 1 })
-          .map((_, dotIndex) => `<button type="button" aria-label="Show services ${dotIndex + 1}" data-carousel-dot="${dotIndex}"></button>`)
+          .map(
+            (_, dotIndex) =>
+              `<button type="button" aria-label="Show services ${dotIndex + 1}" data-carousel-dot="${dotIndex}"></button>`,
+          )
           .join("");
         dots.querySelectorAll("[data-carousel-dot]").forEach((dot) => {
           dot.addEventListener("click", () => {
@@ -285,16 +574,25 @@
         track.style.transform = `translate3d(${-index * step}px, 0, 0)`;
         prev.disabled = index === 0;
         next.disabled = index === maxIndex;
-        dots.querySelectorAll("[data-carousel-dot]").forEach((dot, dotIndex) => {
-          dot.classList.toggle("is-active", dotIndex === index);
-          dot.setAttribute("aria-current", dotIndex === index ? "true" : "false");
-        });
+        dots
+          .querySelectorAll("[data-carousel-dot]")
+          .forEach((dot, dotIndex) => {
+            dot.classList.toggle("is-active", dotIndex === index);
+            dot.setAttribute(
+              "aria-current",
+              dotIndex === index ? "true" : "false",
+            );
+          });
       }
 
       function resize() {
         const nextVisible = getVisibleCount();
         const nextMax = Math.max(0, services.length - nextVisible);
-        if (nextVisible !== visible || nextMax !== maxIndex || !dots.children.length) {
+        if (
+          nextVisible !== visible ||
+          nextMax !== maxIndex ||
+          !dots.children.length
+        ) {
           visible = nextVisible;
           maxIndex = nextMax;
           buildDots();
@@ -317,23 +615,62 @@
     });
   }
 
+  function renderWildlifeTrails() {
+    const root = document.querySelector("[data-wildlife-trails]");
+    if (!root) return;
+
+    const paths = [
+      { x: 4, y: 96, dx: 8, dy: -8, r: -28, size: 28 },
+      { x: 18, y: 108, dx: 7, dy: -9, r: -18, size: 24 },
+      { x: 34, y: 104, dx: 6, dy: -8, r: -12, size: 22 },
+      { x: 54, y: 110, dx: -5, dy: -9, r: 18, size: 26 },
+      { x: 74, y: 102, dx: -6, dy: -8, r: 24, size: 24 },
+      { x: 92, y: 94, dx: -8, dy: -7, r: 34, size: 28 },
+      { x: 8, y: 28, dx: 8, dy: 4, r: 74, size: 22 },
+      { x: 82, y: 20, dx: -7, dy: 5, r: -74, size: 22 },
+    ];
+    const steps = 18;
+    const cycle = 8.8;
+    const stride = 1.25;
+
+    root.innerHTML = paths
+      .flatMap((path, pathIndex) =>
+        Array.from({ length: steps }).map((_, step) => {
+          const side = step % 2 === 0 ? -1 : 1;
+          const x = path.x + path.dx * step + side * stride;
+          const y = path.y + path.dy * step;
+          const size = path.size + ((pathIndex + step) % 3) * 3;
+          const rotation = path.r + side * 12;
+          const delay = -1 * ((pathIndex * 0.75 + step * 0.22) % cycle);
+          const opacity = 0.12 + ((pathIndex + step) % 4) * 0.025;
+          return `<i data-lucide="PawPrint" class="wildlife-trail" style="--x:${x}; --y:${y}; --size:${size}px; --r:${rotation}deg; --delay:${delay}s; --cycle:${cycle}s; --trail-opacity:${opacity}"></i>`;
+        }),
+      )
+      .join("");
+  }
+
   function renderServicePage() {
     const root = document.querySelector("[data-service-page]");
     if (!root) return;
     const params = new URLSearchParams(window.location.search);
-    const slug = document.body.dataset.serviceSlug || params.get("service") || services[0]?.slug;
+    const slug =
+      document.body.dataset.serviceSlug ||
+      params.get("service") ||
+      services[0]?.slug;
     const service = bySlug.get(slug) || services[0];
-    const related = service.related.map((item) => bySlug.get(item)).filter(Boolean);
+    const related = service.related
+      .map((item) => bySlug.get(item))
+      .filter(Boolean);
 
     document.title = `${service.title} | ${cfg.companyName}`;
-    document.querySelector('meta[name="description"]')?.setAttribute("content", service.short);
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", service.short);
 
     root.innerHTML = `
       <section class="page-hero service-hero" style="--hero-image:url('${service.heroImage}')">
-        <div class="page-hero__grid" aria-hidden="true"></div>
         <div class="container service-hero__inner">
           <div class="page-hero__copy reveal">
-            <span class="eyebrow">${icon(service.icon)} ${service.eyebrow}</span>
             <h1>${service.title}</h1>
             <p>${service.short}</p>
             <div class="hero__actions">
@@ -351,7 +688,6 @@
       <section class="section">
         <div class="container split split--wide">
           <div class="reveal">
-            <span class="eyebrow">${icon("check")} Complete service scope</span>
             <h2>Complete ${service.title.toLowerCase()} for the whole problem.</h2>
             <p class="lead">${service.intro}</p>
             <p>Every property is different, so the provider's final plan should be based on species behavior, access points, safety conditions, and local rules. The goal is to resolve the current activity and reduce the chance of repeat entry.</p>
@@ -364,12 +700,10 @@
       <section class="section section--dark">
         <div class="container service-detail-grid">
           <div class="detail-panel reveal">
-            <span class="eyebrow">Included work</span>
             <h2>What this service can include</h2>
             <ul class="check-list">${service.included.map((item) => `<li>${icon("check")}${item}</li>`).join("")}</ul>
           </div>
           <div class="detail-panel detail-panel--lime reveal">
-            <span class="eyebrow">Best fit</span>
             <h2>When to request this service</h2>
             <ul>${service.bestFor.map((item) => `<li>${item}</li>`).join("")}</ul>
           </div>
@@ -378,7 +712,6 @@
       <section class="section">
         <div class="container">
           <div class="section-title reveal">
-            <span class="eyebrow">Field process</span>
             <h2>A practical plan from first inspection to prevention</h2>
           </div>
           <div class="process-grid">
@@ -388,7 +721,7 @@
               <article class="process-card reveal">
                 <span>${String(index + 1).padStart(2, "0")}</span>
                 <p>${step}</p>
-              </article>`
+              </article>`,
               )
               .join("")}
           </div>
@@ -397,7 +730,6 @@
       <section class="section section--soft">
         <div class="container split">
           <div class="reveal">
-            <span class="eyebrow">Details that matter</span>
             <h2>Important notes before work begins</h2>
             <ul class="feature-list">${service.details.map((item) => `<li>${item}</li>`).join("")}</ul>
           </div>
@@ -408,7 +740,7 @@
               <details>
                 <summary>${item.q}</summary>
                 <p>${item.a}</p>
-              </details>`
+              </details>`,
               )
               .join("")}
           </div>
@@ -417,7 +749,6 @@
       <section class="section">
         <div class="container">
           <div class="section-title reveal">
-            <span class="eyebrow">Related work</span>
             <h2>Services often paired with ${service.title}</h2>
           </div>
           <div class="services-grid services-grid--compact">
@@ -427,9 +758,9 @@
               <article class="service-card reveal" style="--bg:url('${item.heroImage}'); --i:${index}">
                 <div class="service-card__icon">${icon(item.icon)}</div>
                 <h3>${item.title}</h3>
-                <p>${item.short}</p>
+                <p class="service-card__text">${item.short}</p>
                 <a href="${item.slug}.html">Open service ${icon("arrow")}</a>
-              </article>`
+              </article>`,
               )
               .join("")}
           </div>
@@ -465,7 +796,8 @@
     });
 
     const header = document.querySelector("[data-site-header]");
-    const sticky = () => header?.classList.toggle("is-sticky", window.scrollY > 70);
+    const sticky = () =>
+      header?.classList.toggle("is-sticky", window.scrollY > 70);
     sticky();
     window.addEventListener("scroll", sticky, { passive: true });
 
@@ -479,7 +811,7 @@
           }
         });
       },
-      { threshold: 0.14, rootMargin: "0px 0px -30px 0px" }
+      { threshold: 0.14, rootMargin: "0px 0px -30px 0px" },
     );
     reveals.forEach((el) => observer.observe(el));
 
@@ -514,7 +846,8 @@
 
     const cookie = document.querySelector("[data-cookie-banner]");
     const key = `cookie:${cfg.companyName || "wildguard"}:preference`;
-    if (cookie && !localStorage.getItem(key)) cookie.classList.add("is-visible");
+    if (cookie && !localStorage.getItem(key))
+      cookie.classList.add("is-visible");
     document.querySelectorAll("[data-cookie-choice]").forEach((button) => {
       button.addEventListener("click", () => {
         localStorage.setItem(key, button.dataset.cookieChoice || "set");
@@ -523,25 +856,67 @@
     });
 
     const form = document.querySelector("[data-lead-form]");
+    const modal = document.querySelector("[data-form-modal]");
+    const modalTitle = document.querySelector("[data-modal-title]");
+    const modalCopy = document.querySelector("[data-modal-copy]");
+    const modalClose = document.querySelectorAll("[data-modal-close]");
+    let previousFocus = null;
+
+    function closeFormModal() {
+      if (!modal) return;
+      modal.classList.remove("is-visible");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("modal-open");
+      previousFocus?.focus?.();
+    }
+
+    function openFormModal() {
+      if (!modal) return;
+      previousFocus = document.activeElement;
+      modal.classList.add("is-visible");
+      modal.setAttribute("aria-hidden", "false");
+      document.body.classList.add("modal-open");
+      modal.querySelector(".form-modal__close")?.focus();
+    }
+
+    modalClose.forEach((button) =>
+      button.addEventListener("click", closeFormModal),
+    );
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && modal?.classList.contains("is-visible"))
+        closeFormModal();
+    });
+
     form?.addEventListener("submit", (event) => {
       event.preventDefault();
+      const title = cfg.formSuccessLead;
+      const copy = cfg.formSuccessDetail
+        .replace("{company}", cfg.companyName)
+        .replace("{email}", cfg.email);
       const message = document.querySelector("[data-form-success]");
       if (message) {
-        message.innerHTML = `<strong>${cfg.formSuccessLead}</strong><span>${cfg.formSuccessDetail
-          .replace("{company}", cfg.companyName)
-          .replace("{email}", cfg.email)}</span>`;
-        message.classList.add("is-visible");
+        message.innerHTML = `<strong>${title}</strong><span>${copy}</span>`;
       }
+      if (modalTitle) modalTitle.textContent = title;
+      if (modalCopy) modalCopy.textContent = copy;
+      openFormModal();
       form.reset();
     });
 
-    document.querySelector("[data-back-top]")?.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    document
+      .querySelector("[data-back-top]")
+      ?.addEventListener("click", () =>
+        window.scrollTo({ top: 0, behavior: "smooth" }),
+      );
   }
 
   function loadServiceOptions() {
     document.querySelectorAll("[data-service-options]").forEach((select) => {
       select.innerHTML = `<option value="">Select a service</option>${services
-        .map((service) => `<option value="${service.title}">${service.title}</option>`)
+        .map(
+          (service) =>
+            `<option value="${service.title}">${service.title}</option>`,
+        )
         .join("")}`;
     });
   }
@@ -551,15 +926,21 @@
   }
 
   function init() {
+    setupPageTransitions();
     renderHeaderFooter();
+    setupSiteSearch();
     hydrateConfig();
     renderServices();
     renderServiceCarousel();
+    renderWildlifeTrails();
     renderServicePage();
     loadServiceOptions();
     setupInteractions();
     refreshIcons();
-    document.documentElement.style.setProperty("--asset-version", `"${version}"`);
+    document.documentElement.style.setProperty(
+      "--asset-version",
+      `"${version}"`,
+    );
   }
 
   document.addEventListener("DOMContentLoaded", init);

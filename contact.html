@@ -17,7 +17,6 @@
     <section class="page-hero" style="--hero-image:url('/img/generated/contact-hero.webp')">
       <div class="page-hero__grid"></div>
       <div class="container page-hero__copy reveal">
-        <span class="eyebrow"><i data-lucide="PhoneCall"></i> Request help</span>
         <h1>Tell us what moved in</h1>
         <p>Share the animal type, where you hear or see activity, and whether it feels urgent. The form response uses company and email data from configuration.</p>
       </div>
@@ -42,7 +41,6 @@
           <label>Service<select name="service" data-service-options required></select></label>
           <label class="full">Project details<textarea name="message" placeholder="Tell us what you saw, where the activity is, and whether people or pets are at risk." required></textarea></label>
           <p class="full" data-disclaimer-short></p>
-          <div class="form-success" data-form-success></div>
           <button class="btn btn--primary full" type="submit">Send Wildlife Request</button>
         </form>
       </div>
@@ -52,6 +50,19 @@
   <a class="floating-call" data-phone-link href="#" aria-label="Call wildlife removal help"><i data-lucide="Phone"></i></a>
   <button class="back-top" data-back-top type="button" aria-label="Back to top"><i data-lucide="ArrowUp"></i></button>
   <div class="cookie-banner" data-cookie-banner><p>We use essential cookies to remember your preferences and improve this website experience. Review details in our cookie policy.</p><div class="cookie-banner__actions"><button data-cookie-choice="accepted">Accept</button><button data-cookie-choice="declined">Decline</button><a href="cookie-policy.html">Cookie Policy</a></div></div>
+  <div class="form-modal" data-form-modal aria-hidden="true">
+    <div class="form-modal__backdrop" data-modal-close></div>
+    <div class="form-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="form-modal-title" aria-describedby="form-modal-copy">
+      <button class="form-modal__close" type="button" data-modal-close aria-label="Close confirmation"><i data-lucide="X"></i></button>
+      <div class="form-modal__mark"><i data-lucide="CheckCircle2"></i></div>
+      <h2 id="form-modal-title" data-modal-title>Thanks. Your request was received.</h2>
+      <p id="form-modal-copy" data-modal-copy>A coordinator will review your message and may contact you by email.</p>
+      <div class="form-modal__actions">
+        <button class="btn btn--primary" type="button" data-modal-close>Done</button>
+        <a class="btn btn--ghost" data-phone-link href="#">Call now</a>
+      </div>
+    </div>
+  </div>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="js/site-config.js?v=2026062001"></script>
   <script src="js/services-data.js?v=2026062001"></script>

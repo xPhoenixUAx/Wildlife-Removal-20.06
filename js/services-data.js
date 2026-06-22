@@ -2,7 +2,6 @@ window.SERVICES = [
   {
     slug: "raccoon-removal",
     title: "Raccoon Removal",
-    eyebrow: "Attic & roofline intrusions",
     short: "Humane raccoon removal, entry-point repair, nesting cleanup, and prevention for attics, chimneys, decks, and crawl spaces.",
     heroImage: "/img/services/raccoon-removal.webp",
     mainImage: "/img/services/raccoon-detail.webp",
@@ -47,7 +46,6 @@ window.SERVICES = [
   {
     slug: "squirrel-removal",
     title: "Squirrel Removal",
-    eyebrow: "Daytime attic movement",
     short: "Targeted squirrel removal with roofline inspection, one-way exclusion, gnaw-damage review, and durable repairs.",
     heroImage: "/img/services/squirrel-removal.webp",
     mainImage: "/img/services/squirrel-detail.webp",
@@ -92,7 +90,6 @@ window.SERVICES = [
   {
     slug: "bat-removal",
     title: "Bat Removal",
-    eyebrow: "Colony-safe exclusion",
     short: "Careful bat exclusion, roost inspection, guano guidance, and entry sealing with attention to seasonal restrictions.",
     heroImage: "/img/services/bat-removal.webp",
     mainImage: "/img/services/bat-detail.webp",
@@ -137,7 +134,6 @@ window.SERVICES = [
   {
     slug: "snake-removal",
     title: "Snake Removal",
-    eyebrow: "Yard, crawl space & interior response",
     short: "Snake inspection, safe removal coordination, habitat reduction, and entry-point recommendations for homes and outbuildings.",
     heroImage: "/img/services/snake-removal.webp",
     mainImage: "/img/services/snake-detail.webp",
@@ -182,7 +178,6 @@ window.SERVICES = [
   {
     slug: "bird-control",
     title: "Bird Control",
-    eyebrow: "Vents, ledges & nesting zones",
     short: "Bird nest removal where allowed, vent protection, ledge deterrents, droppings cleanup guidance, and humane prevention.",
     heroImage: "/img/services/bird-control.webp",
     mainImage: "/img/services/bird-detail.webp",
@@ -227,7 +222,6 @@ window.SERVICES = [
   {
     slug: "rodent-control",
     title: "Rodent Control",
-    eyebrow: "Mice & rats plus sealing",
     short: "Rodent inspection, trapping strategy, entry sealing, sanitation guidance, and prevention for homes, garages, and crawl spaces.",
     heroImage: "/img/services/rodent-control.webp",
     mainImage: "/img/services/rodent-detail.webp",
@@ -272,7 +266,6 @@ window.SERVICES = [
   {
     slug: "exclusion-repairs",
     title: "Exclusion Repairs",
-    eyebrow: "Seal the structure",
     short: "Wildlife-proofing for vents, soffits, roof returns, utility gaps, crawl-space doors, decks, and foundation openings.",
     heroImage: "/img/services/exclusion-repairs.webp",
     mainImage: "/img/services/exclusion-detail.webp",
@@ -317,7 +310,6 @@ window.SERVICES = [
   {
     slug: "attic-restoration",
     title: "Attic Restoration",
-    eyebrow: "Cleanup after wildlife",
     short: "Assessment of droppings, nesting material, odor, insulation damage, and sanitation needs after animal activity.",
     heroImage: "/img/services/attic-restoration.webp",
     mainImage: "/img/services/attic-detail.webp",
@@ -362,7 +354,6 @@ window.SERVICES = [
   {
     slug: "emergency-wildlife-response",
     title: "Emergency Wildlife Response",
-    eyebrow: "Urgent animal situations",
     short: "Rapid help for animals inside living areas, urgent access issues, active damage, and safety-sensitive wildlife situations.",
     heroImage: "/img/services/emergency-response.webp",
     mainImage: "/img/services/emergency-detail.webp",

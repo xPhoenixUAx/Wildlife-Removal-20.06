@@ -2,7 +2,7 @@
   const cfg = window.SITE_CONFIG || {};
   const services = window.SERVICES || [];
   const groups = window.SERVICE_GROUPS || [];
-  const version = "2026062001";
+  const version = "2026062204";
 
   const bySlug = new Map(services.map((service) => [service.slug, service]));
 
@@ -61,6 +61,25 @@
     link.href = path;
     link.fetchPriority = priority;
     document.head.appendChild(link);
+  }
+
+  function preloadHomeImages() {
+    if (!document.querySelector(".hero")) return;
+
+    [
+      "img/media/hero-wildlife.webp",
+      "img/media/home-inspection.webp",
+      "img/media/signs-inspection.webp",
+      "img/media/hero-technician.webp",
+      "img/media/cleanup-attic.webp",
+      "img/media/prevention-repair.webp",
+    ].forEach((path, index) => preloadImage(path, index < 4 ? "high" : "auto"));
+
+    services
+      .slice(0, 5)
+      .forEach((service, index) =>
+        preloadImage(service.heroImage, index < 3 ? "high" : "auto"),
+      );
   }
 
   function ensurePageLoader() {
@@ -649,10 +668,10 @@
       { x: 54, y: 110, dx: -5, dy: -9, r: 18, size: 26 },
       { x: 74, y: 102, dx: -6, dy: -8, r: 24, size: 24 },
       { x: 92, y: 94, dx: -8, dy: -7, r: 34, size: 28 },
-      { x: 8, y: 28, dx: 8, dy: 4, r: 74, size: 22 },
-      { x: 82, y: 20, dx: -7, dy: 5, r: -74, size: 22 },
+      { x: 2, y: 32, dx: 5, dy: 3, r: 74, size: 21 },
+      { x: 96, y: 18, dx: -5, dy: 4, r: -74, size: 21 },
     ];
-    const steps = 18;
+    const steps = 16;
     const cycle = 8.8;
     const stride = 1.25;
 
@@ -665,7 +684,7 @@
           const size = path.size + ((pathIndex + step) % 3) * 3;
           const rotation = path.r + side * 12;
           const delay = -1 * ((pathIndex * 0.75 + step * 0.22) % cycle);
-          const opacity = 0.12 + ((pathIndex + step) % 4) * 0.025;
+          const opacity = 0.11 + ((pathIndex + step) % 4) * 0.022;
           return `<i data-lucide="PawPrint" class="wildlife-trail" style="--x:${x}; --y:${y}; --size:${size}px; --r:${rotation}deg; --delay:${delay}s; --cycle:${cycle}s; --trail-opacity:${opacity}"></i>`;
         }),
       )
@@ -901,6 +920,21 @@
     );
     reveals.forEach((el) => observer.observe(el));
 
+    reveals.forEach((el) => {
+      const images = [...el.querySelectorAll("img")];
+      if (!images.length) return;
+
+      const show = () => el.classList.add("is-visible");
+      if (images.some((image) => image.complete && image.naturalWidth > 0)) {
+        show();
+        return;
+      }
+      images.forEach((image) => {
+        image.addEventListener("load", show, { once: true });
+        image.addEventListener("error", show, { once: true });
+      });
+    });
+
     document.querySelectorAll("[data-counter]").forEach((el) => {
       const target = Number(el.dataset.counter || 0);
       let started = false;
@@ -1031,6 +1065,7 @@
     renderHeaderFooter();
     setupSiteSearch();
     hydrateConfig();
+    preloadHomeImages();
     renderServices();
     renderServiceCarousel();
     renderWildlifeTrails();

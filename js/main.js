@@ -693,7 +693,7 @@
       ?.setAttribute("content", service.short);
 
     root.innerHTML = `
-      <section class="page-hero service-hero" style="${heroBackground(service.heroImage)}">
+      <section class="page-hero service-hero centered-hero" style="${heroBackground(service.heroImage)}">
         <div class="container service-hero__inner">
           <div class="page-hero__copy reveal">
             <h1>${service.title}</h1>

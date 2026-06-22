@@ -48,6 +48,21 @@
     return `mailto:${safe(cfg.email)}`;
   }
 
+  function heroBackground(path) {
+    return `background-image:linear-gradient(90deg, rgba(6, 37, 34, 0.88), rgba(6, 37, 34, 0.7)), url('${path}')`;
+  }
+
+  function preloadImage(path, priority = "high") {
+    if (!path || document.querySelector(`link[rel="preload"][href="${path}"]`))
+      return;
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = path;
+    link.fetchPriority = priority;
+    document.head.appendChild(link);
+  }
+
   function ensurePageLoader() {
     let loader = document.querySelector("[data-page-loader]");
     if (loader) return loader;
@@ -375,6 +390,13 @@
         cfg.companyName,
       );
     }
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription?.content?.includes("WildGuard")) {
+      metaDescription.setAttribute(
+        "content",
+        metaDescription.content.replace(/WildGuard Removal/g, cfg.companyName),
+      );
+    }
   }
 
   function renderHeaderFooter() {
@@ -508,7 +530,8 @@
         .slice(0, limit)
         .map(
           (service, index) => `
-        <article class="service-card reveal" style="--bg:url('${service.heroImage}'); --i:${index}">
+        <article class="service-card reveal" style="--i:${index}">
+          <img class="service-card__bg" src="${service.heroImage}" alt="" decoding="async" fetchpriority="${index < 3 ? "high" : "auto"}" aria-hidden="true">
           <div class="service-card__icon">${icon(service.icon)}</div>
           <h3>${service.title}</h3>
           <p class="service-card__text">${service.short}</p>
@@ -533,9 +556,9 @@
 
       track.innerHTML = services
         .map(
-          (service) => `
+          (service, index) => `
         <article class="service-slide" aria-label="${service.title}">
-          <img src="${service.heroImage}" alt="${service.title} wildlife removal service" loading="lazy">
+          <img src="${service.heroImage}" alt="${service.title} wildlife removal service" decoding="async" fetchpriority="${index < 3 ? "high" : "auto"}">
           <div class="service-slide__body">
             <h3>${service.title}</h3>
             <p>${service.short}</p>
@@ -661,6 +684,8 @@
     const related = service.related
       .map((item) => bySlug.get(item))
       .filter(Boolean);
+    preloadImage(service.heroImage);
+    preloadImage(service.mainImage);
 
     document.title = `${service.title} | ${cfg.companyName}`;
     document
@@ -668,7 +693,7 @@
       ?.setAttribute("content", service.short);
 
     root.innerHTML = `
-      <section class="page-hero service-hero" style="--hero-image:url('${service.heroImage}')">
+      <section class="page-hero service-hero" style="${heroBackground(service.heroImage)}">
         <div class="container service-hero__inner">
           <div class="page-hero__copy reveal">
             <h1>${service.title}</h1>
@@ -693,7 +718,7 @@
             <p>Every property is different, so the provider's final plan should be based on species behavior, access points, safety conditions, and local rules. The goal is to resolve the current activity and reduce the chance of repeat entry.</p>
           </div>
           <figure class="image-frame reveal">
-            <img src="${service.mainImage}" alt="${service.title} service technician inspecting a property" loading="lazy">
+            <img src="${service.mainImage}" alt="${service.title} service technician inspecting a property" decoding="async" fetchpriority="high">
           </figure>
         </div>
       </section>
@@ -755,7 +780,8 @@
             ${related
               .map(
                 (item, index) => `
-              <article class="service-card reveal" style="--bg:url('${item.heroImage}'); --i:${index}">
+              <article class="service-card reveal" style="--i:${index}">
+                <img class="service-card__bg" src="${item.heroImage}" alt="" decoding="async" fetchpriority="auto" aria-hidden="true">
                 <div class="service-card__icon">${icon(item.icon)}</div>
                 <h3>${item.title}</h3>
                 <p class="service-card__text">${item.short}</p>
@@ -832,6 +858,36 @@
     window.addEventListener("scroll", sticky, { passive: true });
 
     const reveals = document.querySelectorAll(".reveal");
+    const revealMotions = [
+      "reveal--rise",
+      "reveal--left",
+      "reveal--right",
+      "reveal--zoom",
+      "reveal--tilt",
+    ];
+    reveals.forEach((el, index) => {
+      if (
+        [...el.classList].some((className) => className.startsWith("reveal--"))
+      )
+        return;
+      if (el.classList.contains("image-frame")) {
+        el.classList.add("reveal--clip");
+        return;
+      }
+      if (el.classList.contains("section-title")) {
+        el.classList.add("reveal--left");
+        return;
+      }
+      if (
+        el.classList.contains("service-card") ||
+        el.classList.contains("process-card") ||
+        el.classList.contains("detail-panel")
+      ) {
+        el.classList.add(revealMotions[index % revealMotions.length]);
+        return;
+      }
+      el.classList.add(revealMotions[index % revealMotions.length]);
+    });
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -942,10 +998,6 @@
       const copy = cfg.formSuccessDetail
         .replace("{company}", cfg.companyName)
         .replace("{email}", cfg.email);
-      const message = document.querySelector("[data-form-success]");
-      if (message) {
-        message.innerHTML = `<strong>${title}</strong><span>${copy}</span>`;
-      }
       if (modalTitle) modalTitle.textContent = title;
       if (modalCopy) modalCopy.textContent = copy;
       openFormModal();

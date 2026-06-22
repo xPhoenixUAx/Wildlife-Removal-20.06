@@ -781,6 +781,23 @@ main > section > .container {
   display: none;
 }
 
+.centered-hero,
+.services-hero {
+  text-align: center;
+}
+
+.centered-hero .page-hero__copy,
+.services-hero .page-hero__copy {
+  display: grid;
+  justify-items: center;
+  margin-inline: auto;
+}
+
+.centered-hero h1,
+.services-hero h1 {
+  margin-inline: auto;
+}
+
 .hero__inner,
 .service-hero__inner {
   position: relative;
